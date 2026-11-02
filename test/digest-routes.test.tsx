@@ -16,6 +16,13 @@ const normal = [
   line({ at: '2026-10-29T04:00:01+01:00', job: 'notes/backup', status: 'fail', owner: 'lane-07', error: 'quota exceeded' }),
 ].join('\n');
 
+// The <tr> that holds `job`: its opening tag and its cell texts.
+const rowOf = (html: string, job: string) => {
+  const m = [...html.matchAll(/<tr([^>]*)>(.*?)<\/tr>/gs)].find((r) => r[2]?.includes(`<td>${job}</td>`));
+  if (!m) throw new Error(`no row for ${job}`);
+  return { attrs: m[1] ?? '', cells: [...(m[2] ?? '').matchAll(/<td>(.*?)<\/td>/gs)].map((c) => c[1]) };
+};
+
 let runsDir = '';
 let app: ReturnType<typeof createApp>;
 
@@ -44,10 +51,16 @@ describe('GET /digest/:night', () => {
     const jobs = ['digest/render', 'fixtures/refresh', 'notes/backup'].map((j) => html.indexOf(j));
     expect(jobs.every((i) => i >= 0)).toBe(true);
     expect(jobs).toEqual([...jobs].sort((a, b) => a - b));
-    expect(html.match(/class="warn"/g)).toHaveLength(2);
-    expect(html).toContain('—');
+    expect(rowOf(html, 'fixtures/refresh').attrs).toContain('class="warn"');
+    expect(rowOf(html, 'notes/backup').attrs).toContain('class="warn"');
+    expect(rowOf(html, 'digest/render').attrs).not.toContain('warn');
+    const render = rowOf(html, 'digest/render').cells;
+    expect(render[1]).toBe('—');
+    expect(render[5]).toBe('—');
+    expect(rowOf(html, 'notes/backup').cells[1]).toBe('lane-07');
     expect(html).toContain('2026-10-29T05:41:09+01:00');
     expect(html).toContain('bad lines: 0');
+    expect(html).toMatch(/<header>.*<span class="marker">.*<\/span>.*<\/header>/s);
   });
 
   it('answers 404 for a night with no file', async () => {
