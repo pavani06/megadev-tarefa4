@@ -118,4 +118,25 @@ describe('readNight', () => {
     expect(night?.rows).toHaveLength(1);
     expect(night?.counts).toEqual({ ok: 1, retry: 0, fail: 0 });
   });
+
+  it('keeps the last owner and the last error seen, even after a final ok', () => {
+    const text = [
+      '{"at":"2026-10-01T23:00:00+01:00","job":"a","status":"retry","owner":"rook","error":"first error"}',
+      '{"at":"2026-10-01T23:01:00+01:00","job":"a","status":"retry","owner":"lane-07","error":"second error"}',
+      '{"at":"2026-10-01T23:02:00+01:00","job":"a","status":"ok","owner":null}',
+    ].join('\n');
+    const night = readNight(tempRuns({ '2026-10-01.jsonl': text }), '2026-10-01');
+    expect(night?.rows).toEqual([
+      {
+        job: 'a',
+        owner: null,
+        runs: 3,
+        retries: 2,
+        lastStatus: 'ok',
+        lastError: 'second error',
+        firstAt: '2026-10-01T23:00:00+01:00',
+        lastAt: '2026-10-01T23:02:00+01:00',
+      },
+    ]);
+  });
 });
